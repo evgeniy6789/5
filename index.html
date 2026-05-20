@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Календарь дней с циферблатом и Восточным гороскопом</title>
+
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./android-icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-180x180.png">
+
+    <style>
+        :root {
+            --orange: #FF6800;
+            --aqua: #00FFFF;
+            --yellow: #FFFF00;
+            --red: #FF0000;
+            --aquamarine: #7FFFD4;
+            --gold: #008080;
+            --black: #000000;
+            --blue: #0000FF;
+            --bg: #f7f8fb;
+            --card: #ffffff;
+            --muted: #6b7280;
+            --text: #111827;
+            --accent: #0ea5e9;
+            --day: #ffffff;
+            --day-border: rgba(17, 24, 39, 0.12);
+            --shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+            --sea-light: #00ff0d;
+            --sea-dark: #00ff0d;
+        }
+
+        .calendars-wrapper,
+        .calendar,
+        .cal-grid,
+        .day {
+            touch-action: pan-y;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        }
+
+        .page {
+            max-width: 1120px;
+            margin: 24px auto;
+            padding: 0 16px;
+            grid-template-columns: 1fr 1fr;
+            display: grid;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .top {
+            grid-column: 1 / -1;
+        }
+
+        .glass {
+            position: relative;
+            overflow: hidden;
+            border-radius: 18px;
+            background: linear-gradient(120deg, #ffffff, #f0f4ff);
+            border: 1px solid rgba(17, 24, 39, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .glass::before {
+            content: "";
+            position: absolute;
+            inset: -40% -20%;
+            background:
+                radial-gradient(640px 320px at 0% 0%, rgba(255, 183, 77, 0.25) 0%, transparent 60%),
+                radial-gradient(640px 320px at 100% 100%, rgba(56, 189, 248, 0.25) 0%, transparent 60%);
+            animation: glow 18s linear infinite;
+            filter: blur(16px);
+            pointer-events: none;
+        }
+
+        @keyframes glow {
+            0% {
+                transform: translate(0, 0) rotate(0);
+            }
+
+            50% {
+                transform: translate(6%, -4%) rotate(180deg);
+            }
+
+            100% {
+                transform: translate(0, 0) rotate(360deg);
+            }
+        }
+
+        .content {
+            position: relative;
+            padding: 18px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .center-title {
+            font-size: 28px;
+            font-weight: 900;
+            text-align: left;
+            flex-grow: 0;
+            margin-left: -80px;
+            white-space: nowrap;
+            background: linear-gradient(120deg, #8A2BE2 0%, #00FFFF 30%, #FF00FF 60%, #32CD32 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(138, 43, 226, 0.4);
+            background-size: 300% 100%;
+            animation: gradient-shift 6s linear infinite alternate;
+        }
+
+        @keyframes gradient-shift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #11182710;
+            color: #111;
+            border: 1px solid rgba(17, 24, 39, 0.12);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-weight: 700;
+            box-shadow: var(--shadow);
+        }
+
+        .chip select {
+            appearance: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: #111;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .now {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .month-week {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .card {
+            border-radius: 12px;
+            padding: 14px;
+            background: var(--card);
+            border: 1px solid rgba(17, 24, 39, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #singleDateValue {
+            white-space: nowrap;
+        }
+
+        .calendars-wrapper {
+            display: contents;
+            grid-column: 1 / -1;
+        }
+
+        .calendar {
+            border-radius: 18px;
+            overflow: hidden;
+            background: var(--card);
+            border: 1px solid rgba(17, 24, 39, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .cal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            color: #111;
+            font-weight: 700;
+        }
+
+        .cal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+        }
+
+        .nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav button {
+            all: unset;
+            cursor: pointer;
+            background: rgba(17, 24, 39, 0.08);
+            color: #111;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: transform .08s, background .2s;
+        }
+
+        .nav button:hover {
+            background: rgba(17, 24, 39, 0.12);
+        }
+
+        .nav button:active {
+            transform: scale(0.97);
+        }
+
+        .theme-orange .cal-header {
+            background: var(--aqua);
+            color: var(--text);
+        }
+
+        .theme-yellow .cal-header {
+            background: var(--yellow);
+            color: var(--text);
+        }
+
+        .theme-sea .cal-header {
+            background: linear-gradient(90deg, var(--sea-light), var(--sea-dark));
+            color: var(--text);
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            padding: 12px;
+        }
+
+        .weekday {
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            padding: 6px 0;
+        }
+
+        .day {
+            user-select: none;
+            text-align: center;
+            padding: 12px 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            background: var(--day);
+            border: 1px solid var(--day-border);
+            transition: transform .08s, box-shadow .2s, background .2s, color .2s;
+            position: relative;
+            font-size: 14px;
+        }
+
+        .moon-phase {
+            display: none;
+        }
+
+        .day:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .day.empty {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .day.weekend {
+            color: var(--text);
+            background: var(--orange);
+            border-color: #D95500;
+            box-shadow: 0 0 0 2px #D95500 inset;
+        }
+
+        .day.holiday {
+            color: #fff;
+            background: var(--red);
+            border-color: #CC0000;
+            box-shadow: 0 0 0 2px #CC0000 inset;
+        }
+
+        .day.today {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .day.selected {
+            color: var(--text);
+            background: var(--aquamarine);
+            border-color: #66CCB2;
+            box-shadow: 0 0 0 2px #66CCB2 inset;
+        }
+
+        .legend {
+            grid-column: 1 / -1;
+            font-size: 14px;
+            color: var(--muted);
+            padding: 6px 12px 12px;
+        }
+
+        #calendarSingle {
+            grid-column: 1 / -1;
+        }
+
+        #calendarSingle .summary {
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        }
+
+        .type-holiday {
+            color: var(--red);
+        }
+
+        .type-weekend {
+            color: var(--orange);
+        }
+
+        .type-working {
+            color: var(--black);
+        }
+
+        .type-none {
+            color: var(--blue);
+        }
+
+        .type-date {
+            color: var(--gold);
+        }
+
+        .type-zodiac {
+            color: #800000;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+            -webkit-text-fill-color: unset;
+        }
+
+        @media (max-width:900px) {
+            .page {
+                grid-template-columns: 1fr;
+                padding: 0 10px;
+                margin: 10px auto;
+                gap: 10px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr;
+            }
+
+            #calendarSingle .summary {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                padding-bottom: 10px;
+            }
+
+            .left {
+                width: 100%;
+                justify-content: space-between;
+                gap: 5px;
+            }
+
+            .left>div:last-child {
+                text-align: right;
+            }
+
+            .center-title {
+                text-align: center;
+                width: 100%;
+                margin-top: 10px;
+                margin-bottom: 10px;
+                margin-left: 0;
+                flex-grow: 1;
+                font-size: 24px;
+            }
+
+            .now {
+                font-size: 24px;
+            }
+
+            .chip {
+                padding: 6px 8px;
+            }
+
+            .calendars-wrapper {
+                display: flex;
+                overflow-x: hidden;
+                gap: 10px;
+                padding-bottom: 15px;
+            }
+
+            .calendar {
+                min-width: 80vw;
+                flex-shrink: 0;
+            }
+        }
+
+        @media (max-width:400px) {
+            .day {
+                font-size: 13px;
+                padding: 8px 0;
+            }
+
+            .weekday {
+                font-size: 11px;
+            }
+
+            .now {
+                font-size: 20px;
+            }
+
+            .center-title {
+                font-size: 20px;
+            }
+
+            .value {
+                font-size: 18px;
+            }
+
+            .cal-title {
+                font-size: 16px;
+            }
+
+            .calendar {
+                min-width: 90vw;
+            }
+        }
+
+        #customTooltip {
+            position: fixed;
+            z-index: 1000;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid rgba(17, 24, 39, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            font-weight: 700;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+            top: 0;
+            left: 0;
+            max-width: 90vw;
+            box-sizing: border-box;
+            color: var(--text);
+        }
+
+        .rainbow-text {
+            background: linear-gradient(90deg,
+                    #FF0000,
+                    #FF7F00,
+                    #FFFF00,
+                    #00FF00,
+                    #0000FF,
+                    #4B0082,
+                    #9400D3);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: rainbow-shift 6s linear infinite;
+            background-size: 600% 100%;
+        }
+
+        @keyframes rainbow-shift {
+            to {
+                background-position: -600% 0;
+            }
+        }
+
+        #customTooltip.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @media (max-width: 480px) {
+
+            .page {
+                display: block;
+                padding: 0 8px;
+                margin: 0;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .center-title {
+                font-size: 20px;
+                margin: 0;
+                text-align: left;
+            }
+
+            .calendars-wrapper {
+                display: block;
+                overflow: visible;
+                padding: 0;
+            }
+
+            .calendar {
+                width: 100%;
+                margin-bottom: 16px;
+                min-width: unset;
+            }
+
+            .cal-grid {
+                grid-template-columns: repeat(7, 1fr);
+                gap: 3px;
+                padding: 8px;
+                grid-auto-rows: 32px;
+            }
+
+            .day {
+                width: 100%;
+                height: 32px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 12px;
+                border-radius: 6px;
+                box-sizing: border-box;
+                padding: 0;
+            }
+
+            .weekday {
+                font-size: 11px;
+                padding: 4px 0;
+            }
+
+            .holiday-fire {
+                animation-duration: 3.2s;
+            }
+
+            .freeze-overlay {
+                backdrop-filter: blur(2px);
+            }
+
+            .day:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
+            [data-tooltip]:hover::after {
+                display: none !important;
+            }
+        }
+
+        .weather-glass {
+            grid-column: 1 / -1;
+        }
+
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .weather-title {
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .weather-city-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #11182710;
+            border-radius: 10px;
+            padding: 6px 10px;
+            border: 1px solid rgba(17, 24, 39, 0.12);
+            box-shadow: var(--shadow);
+        }
+
+        .weather-city-select select {
+            appearance: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .weather-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .weather-main-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .weather-main-icon {
+            font-size: 40px;
+        }
+
+        .weather-main-temp {
+            font-size: 34px;
+            font-weight: 900;
+        }
+
+        .weather-main-desc {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .weather-main-extra {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.4;
+            text-align: right;
+        }
+
+        .weather-hourly-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .weather-hourly-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+        }
+
+        .weather-hourly-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .weather-hour-card {
+            min-width: 70px;
+            padding: 8px 6px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(17, 24, 39, 0.08);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .weather-hour-time {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .weather-hour-icon {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+
+        .weather-hour-temp {
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+
+        .weather-hour-meta {
+            font-size: 10px;
+            color: var(--muted);
+            line-height: 1.2;
+        }
+
+        @media (max-width: 480px) {
+            .weather-main {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .weather-main-extra {
+                text-align: left;
+            }
+        }
+
+        #hour-nav button {
+            all: unset;
+            cursor: pointer;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 900;
+            color: #333;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            transition: 0.2s;
+        }
+
+        #hour-nav button:hover {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        #hour-nav button:active {
+            transform: scale(0.85);
+        }
+
+        #hour-nav {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 18px;
+            margin-bottom: 10px;
+            padding: 0 4px;
+            box-sizing: border-box;
+        }
+
+        #hour-nav button {
+            all: unset;
+            cursor: pointer;
+
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 20px;
+            font-weight: 900;
+            line-height: 0;
+
+            color: #333;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            transition: 0.2s ease;
+        }
+
+        #hour-nav button:hover {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        #hour-nav button:active {
+            transform: scale(0.85);
+        }
+
+        @media (max-width: 600px) {
+
+            #hour-nav button,
+            #hour-nav .hour-title {
+                display: none;
+            }
+
+            #hour-nav {
+                justify-content: center;
+                height: 0;
+                margin: 0;
+                padding: 0;
+            }
+        }
+
+        .feels-like {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: -4px;
+            margin-bottom: 4px;
+        }
+
+        .feels-warmer {
+            color: #ff3b3b;
+            font-weight: 700;
+        }
+
+        .feels-colder {
+            color: #3b6aff;
+            font-weight: 700;
+        }
+
+        .feels-same {
+            color: #e6c300;
+            font-weight: 700;
+        }
+
+        #weatherCurrentIcon {
+            display: inline-block;
+            transition: all 1s ease-in-out;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+        }
+
+        @keyframes weatherFloat {
+            0% {
+                transform: translateY(0) scale(1);
+            }
+
+            50% {
+                transform: translateY(-5px) scale(1.05);
+            }
+
+            100% {
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        #weatherCurrentIcon {
+            animation: weatherFloat 5s infinite ease-in-out;
+        }
+
+        .hourly-item img,
+        .hourly-item div {
+            transition: transform 0.3s ease;
+        }
+
+        .hourly-item:hover img {
+            transform: scale(1.2) rotate(5deg);
+        }
+
+        #musicBtn {
+            position: absolute !important;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+
+            background: var(--bg-card, white);
+            border: 2px solid GreenYellow;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+
+        #musicBtn:active {
+            transform: scale(0.9);
+        }
+
+        @media (max-width: 768px) {
+            #musicBtn {
+                position: absolute !important;
+                top: 20px;
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            #musicBtn:active {
+                transform: translateX(-50%) scale(0.9);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .center-title {
+                display: block !important;
+                text-align: center !important;
+                font-size: 16px !important;
+                width: 100% !important;
+                white-space: nowrap !important;
+                margin-top: 20px !important;
+                margin-bottom: 10px !important;
+                padding: 0 !important;
+                transform: none !important;
+            }
+
+            .center-title * {
+                display: inline !important;
+                vertical-align: middle !important;
+                margin: 0 2px !important;
+                padding: 0 !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .center-title {
+                font-size: clamp(18px, 5.5vw, 24px);
+                white-space: normal;
+                padding: 0 10px;
+                line-height: 1.2;
+                letter-spacing: -0.5px;
+                display: block;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .center-title {
+                font-size: clamp(18px, 5.5vw, 24px);
+                white-space: normal;
+                padding: 0 10px;
+                line-height: 1.1;
+                display: block;
+                text-align: center;
+                margin: 5px 0 !important;
+            }
+
+            .center-title+div {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                text-align: center !important;
+            }
+
+            .month-week,
+            #todayFull {
+                margin: 0 !important;
+                padding: 0 !important;
+                line-height: 1.2 !important;
+            }
+        }
+
+        .sun-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+        }
+
+        .sun-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+            margin-left: -5px;
+        }
+
+        .sun-group {
+            white-space: nowrap;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .sun-row {
+                justify-content: flex-start;
+                margin-left: -5px;
+            }
+        }
+
+        .sun-info {
+            margin-top: 12px;
+            margin-bottom: 12px;
+
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .greeting,
+        .feels-like {
+            margin: 0;
+            display: block;
+        }
+
+        #weatherCurrentExtra b {
+            display: inline;
+        }
+
+        @media (max-width: 768px) {
+            #weatherCurrentExtra b {
+                display: none !important;
+            }
+
+            #weatherCurrentExtra b+br {
+                display: none;
+            }
+        }
+
+        .weather-day-card {
+            min-width: 90px;
+            padding: 10px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(17, 24, 39, 0.08);
+            text-align: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .weather-day-name {
+            font-size: 13px;
+            font-weight: 800;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .weather-day-temp {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .temp-max {
+            color: #ff4500;
+        }
+
+        .temp-min {
+            color: #007BFF;
+            font-size: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .v-premium-base {
+                height: 16px !important;
+            }
+        }
+
+        ::selection {
+            background: transparent;
+            color: #7B68EE;
+            font-weight: bold;
+        }
+
+        ::-moz-selection {
+            background: transparent;
+            color: #7B68EE;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <audio id="bgMusic" loop>
+        <source src="music.mp3" type="audio/mpeg">
+        Ваш браузер не поддерживает аудио.
+    </audio>
+
+    <button id="musicBtn">🔇</button>
+    <div class="page">
+        <div class="glass top">
+            <div class="content">
+                <div class="topbar">
+                    <div class="left">
+                        <div class="chip">
+                            <select id="chipMonth" title="Месяц"></select>
+                            <select id="chipYear" title="Год"></select>
+                        </div>
+                        <div>
+                            <div class="now" id="nowTime">--:--:--</div>
+                            <div class="month-week" id="monthWeek">---</div>
+                        </div>
+                    </div>
+
+                    <div class="center-title">✨ Календарь дней с циферблатом ✨</div>
+
+                    <div>
+                        <div class="month-week">Сегодня</div>
+                        <div id="todayFull">--</div>
+                    </div>
+                </div>
+
+                <div class="summary">
+                    <div class="card">
+                        <div class="label">Дней между выбранными датами</div>
+                        <div class="value" id="daysBetween">—</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">Осталось до второй даты</div>
+                        <div class="value" id="timeLeft">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="calendars-wrapper">
+            <div class="calendar theme-orange" id="calendarStart">
+                <div class="cal-header">
+                    <div class="cal-title">
+                        <span id="startTitle">—</span>
+                    </div>
+                    <div class="nav">
+                        <button data-cal="start" data-act="prev">‹</button>
+                        <button data-cal="start" data-act="today">Сегодня</button>
+                        <button data-cal="start" data-act="next">›</button>
+                    </div>
+                </div>
+
+                <div class="cal-grid" id="startWeekdays"></div>
+                <div class="cal-grid" id="startDays"></div>
+
+                <div class="legend">
+                    Один клик выбирает дату. Выходные — Оранжевые. Праздники — Красный. Выбранная дата — Аквамариновый.
+                </div>
+            </div>
+
+            <div class="calendar theme-yellow" id="calendarEnd">
+                <div class="cal-header">
+                    <div class="cal-title">
+                        <span id="endTitle">—</span>
+                    </div>
+                    <div class="nav">
+                        <button data-cal="end" data-act="prev">‹</button>
+                        <button data-cal="end" data-act="today">Сегодня</button>
+                        <button data-cal="end" data-act="next">›</button>
+                    </div>
+                </div>
+
+                <div class="cal-grid" id="endWeekdays"></div>
+                <div class="cal-grid" id="endDays"></div>
+
+                <div class="legend">
+                    Выберите вторую дату — увидите, сколько времени осталось до неё.
+                </div>
+            </div>
+        </div>
+
+        <div class="calendar theme-sea" id="calendarSingle">
+            <div class="cal-header">
+                <div class="cal-title">Подробности выбранной даты</div>
+            </div>
+
+            <div class="content">
+                <div class="summary">
+                    <div class="card">
+                        <div class="label">Дата и день недели</div>
+                        <div class="value" id="singleDateValue">—</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="label">Праздник / Событие</div>
+                        <div class="value" id="singleHolidayValue">—</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="label">Тип дня</div>
+                        <div class="value" id="singleDayTypeValue">—</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="label">Восточный гороскоп (Год)</div>
+                        <div class="value type-zodiac" id="singleZodiacValue">
+                            <span id="zodiacImage"></span>
+                            <span id="zodiacText">—</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="label">Фаза Луны</div>
+                        <div class="value" id="singleMoonValue">—</div>
+                    </div>
+                </div>
+
+                <div class="legend" id="singleLegend">
+                    Выберите дату в любом календаре, чтобы увидеть подробности.
+                </div>
+            </div>
+        </div>
+
+        <div class="glass weather-glass">
+            <div class="content">
+                <div class="weather-header">
+                    <div class="weather-title">Погода</div>
+                    <div class="weather-city-select">
+                        <span>Город:</span>
+                        <select id="weatherCitySelect"></select>
+                    </div>
+                </div>
+
+                <div class="weather-main">
+                    <div class="weather-main-left">
+                        <div class="weather-main-icon" id="weatherCurrentIcon">—</div>
+                        <div>
+                            <div class="weather-main-temp" id="weatherCurrentTemp">--°</div>
+
+                            <div class="welcome-text"></div>
+
+                            <div class="sun-row">
+                                <div class="sun-group">
+                                    🌅 Рассвет: <span id="sunriseTime">07:00</span>
+                                </div>
+                                <div class="sun-group">
+                                    🌇 Закат: <span id="sunsetTime">18:43</span>
+                                </div>
+                            </div>
+
+                            <div class="feels-like">
+                                Ощущается как: <span id="feelsLikeTemp">--</span>°
+                            </div>
+
+                            <div class="feels-like" id="yesterdayFeelsLike">Вчера в это время ощущалось: --°</div>
+
+                            <div class="feels-like" id="compareFeelsLike">—</div>
+
+                            <div class="weather-main-desc" id="weatherCurrentDesc">—</div>
+
+                            <div id="weatherAdvice" style="margin-top: 10px; font-weight: bold; font-style: italic;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="weather-main-extra" id="weatherCurrentExtra">
+                        Ветер: — м/с<br>
+                        Облачность: —%<br>
+                        Давление: — гПа
+                    </div>
+                </div>
+
+                <div id="hour-nav">
+                    <button id="hour-prev">‹</button>
+                    <span class="hour-title">Почасовой прогноз</span>
+                    <button id="hour-next">›</button>
+                </div>
+
+                <div class="weather-hourly-scroll" id="weatherHourlyContainer"></div>
+
+                <div class="weather-hourly-title">Прогноз на 7 дней</div>
+                <div class="weather-hourly-scroll" id="weatherSevenDaysContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="customTooltip">
+        <span id="tooltipText"></span>
+    </div>
+    <script>
+        const HOLIDAYS_RU = {
+            '01-01': 'Новый год',
+            '01-02': 'Новогодние каникулы',
+            '01-03': 'Новогодние каникулы',
+            '01-04': 'Новогодние каникулы',
+            '01-05': 'Новогодние каникулы',
+            '01-06': 'Новогодние каникулы',
+            '01-07': 'Рождество',
+            '01-08': 'Новогодние каникулы',
+            '01-09': 'Новогодние каникулы',
+            '01-10': 'Новогодние каникулы',
+            '01-11': 'Новогодние каникулы',
+            '02-23': 'День защитника Отечества',
+            '03-08': 'Международный женский день',
+            '05-01': 'Праздник Весны и Труда',
+            '05-09': 'День Победы',
+            '06-12': 'День России',
+            '11-04': 'День народного единства'
+        };
+
+        const MEMORIAL_DAYS_RU = {
+            '04-12': 'День космонавтики',
+            '09-01': 'День знаний',
+            '12-12': 'День Конституции Российской Федерации'
+        };
+
+        const ZODIAC_ANIMALS_CORRECT = [
+            { name: 'Крыса', emoji: '🐀' },
+            { name: 'Бык', emoji: '🐂' },
+            { name: 'Тигр', emoji: '🐅' },
+            { name: 'Кролик', emoji: '🐇' },
+            { name: 'Дракон', emoji: '🐉' },
+            { name: 'Змея', emoji: '🐍' },
+            { name: 'Лошадь', emoji: '🐎' },
+            { name: 'Коза', emoji: '🐐' },
+            { name: 'Обезьяна', emoji: '🐒' },
+            { name: 'Петух', emoji: '🐓' },
+            { name: 'Собака', emoji: '🐕' },
+            { name: 'Свинья', emoji: '🐖' }
+        ];
+
+        const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const WEEKDAY_FULL = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+        let viewStart = new Date();
+        let viewEnd = new Date();
+        let selectedStart = null;
+        let selectedEnd = null;
+
+        const customTooltip = document.querySelector('#customTooltip');
+        const tooltipText = document.querySelector('#tooltipText');
+        const chipMonth = document.querySelector('#chipMonth');
+        const chipYear = document.querySelector('#chipYear');
+        const nowTime = document.querySelector('#nowTime');
+        const monthWeek = document.querySelector('#monthWeek');
+        const todayFull = document.querySelector('#todayFull');
+        const daysBetweenEl = document.querySelector('#daysBetween');
+        const timeLeftEl = document.querySelector('#timeLeft');
+        const startTitle = document.querySelector('#startTitle');
+        const startWeekdays = document.querySelector('#startWeekdays');
+        const startDays = document.querySelector('#startDays');
+        const endTitle = document.querySelector('#endTitle');
+        const endWeekdays = document.querySelector('#endWeekdays');
+        const endDays = document.querySelector('#endDays');
+        const singleDateValue = document.querySelector('#singleDateValue');
+        const singleHolidayValue = document.querySelector('#singleHolidayValue');
+        const singleLegend = document.querySelector('#singleLegend');
+        const singleDayTypeValue = document.querySelector('#singleDayTypeValue');
+        const singleZodiacValue = document.querySelector('#singleZodiacValue');
+        const zodiacImage = document.querySelector('#zodiacImage');
+        const zodiacText = document.querySelector('#zodiacText');
+        const singleMoonValue = document.querySelector('#singleMoonValue');
+
+        MONTHS.forEach((m, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = m;
+            chipMonth.appendChild(opt);
+        });
+
+        for (let y = 1970; y <= 2099; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            chipYear.appendChild(opt);
+        }
+
+        function pad2(n) { return String(n).padStart(2, '0'); }
+        function ymd(date) { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`; }
+        function md(date) { return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`; }
+        function isWeekend(date) { const d = date.getDay(); return d === 0 || d === 6; }
+        function isToday(date) {
+            const t = new Date();
+            return date.getFullYear() === t.getFullYear() &&
+                date.getMonth() === t.getMonth() &&
+                date.getDate() === t.getDate();
+        }
+        function monthTitle(date) { return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`; }
+        function clampYear(y) { if (y < 1970) return 1970; if (y > 2099) return 2099; return y; }
+
+        function getZodiacAnimal(year) {
+            const startYear = 1900;
+            const index = (year - startYear) % 12;
+            return ZODIAC_ANIMALS_CORRECT[index];
+        }
+
+        function getMemorialDayName(dateKey, year) {
+            const name = MEMORIAL_DAYS_RU[dateKey];
+            if (dateKey === '12-12' && year < 1993) return null;
+            return name || null;
+        }
+
+        function getMoonPhase(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+
+            let r = year % 100;
+            r %= 19;
+            if (r > 9) r -= 19;
+
+            r = ((r * 11) % 30) + month + day;
+
+            if (month < 3) r += 2;
+
+            const phase = (r - 8.3) % 30;
+            return (phase + 30) % 30;
+        }
+
+        function getMoonPhaseName(phase) {
+            let name = "";
+            if (phase < 1) name = "Новолуние";
+            else if (phase < 7) name = "Растущий серп";
+            else if (phase < 9) name = "Первая четверть";
+            else if (phase < 14) name = "Растущая Луна";
+            else if (phase < 16) name = "Полнолуние";
+            else if (phase < 22) name = "Убывающая Луна";
+            else if (phase < 24) name = "Последняя четверть";
+            else name = "Старая Луна";
+
+            const angle = (phase / 30) * 2 * Math.PI;
+            const percent = Math.round(((1 - Math.cos(angle)) / 2) * 100);
+
+            return `${name} (${percent}%)`;
+        }
+
+        function getMoonEmoji(phase) {
+            if (phase < 1) return "🌑";
+            if (phase < 7) return "🌒";
+            if (phase < 9) return "🌓";
+            if (phase < 14) return "🌔";
+            if (phase < 16) return "🌕";
+            if (phase < 22) return "🌖";
+            if (phase < 24) return "🌗";
+            return "🌘";
+        }
+
+        function showTooltip(el, text) {
+            if (!text) return;
+
+            tooltipText.textContent = text;
+
+            const dayNum = parseInt(el.textContent);
+            const cal = el.closest('.cal-grid');
+
+            let view;
+            if (cal && cal.id === 'startDays') view = viewStart;
+            else if (cal && cal.id === 'endDays') view = viewEnd;
+            else view = new Date();
+
+            const date = new Date(view.getFullYear(), view.getMonth(), dayNum);
+            const year = date.getFullYear();
+            const dateKey = md(date);
+            const memorial = getMemorialDayName(dateKey, year);
+
+            const rainbow = el.classList.contains('holiday') || memorial;
+
+            if (rainbow) {
+                tooltipText.classList.add('rainbow-text');
+                tooltipText.style.color = 'transparent';
+            } else {
+                tooltipText.classList.remove('rainbow-text');
+                tooltipText.style.color = 'var(--text)';
+            }
+
+            const rect = el.getBoundingClientRect();
+            const w = customTooltip.offsetWidth;
+            const bw = document.body.clientWidth;
+            const pad = 10;
+
+            let left = rect.left + rect.width / 2;
+            let tx = -w / 2;
+
+            customTooltip.style.left = `${left}px`;
+            customTooltip.style.top = `${rect.top - 30}px`;
+            customTooltip.style.transform = `translate(${tx}px,-10px)`;
+            customTooltip.classList.add('show');
+
+            const finalLeft = left + tx;
+
+            if (finalLeft < pad) {
+                customTooltip.style.left = `${pad}px`;
+                customTooltip.style.transform = `translate(0,-10px)`;
+            } else if (finalLeft + w > bw - pad) {
+                customTooltip.style.left = `${bw - pad}px`;
+                customTooltip.style.transform = `translate(-100%,-10px)`;
+            }
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest('.day')) hideTooltip();
+        }, { passive: true });
+
+        document.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('.day')) hideTooltip();
+        });
+
+        window.addEventListener('scroll', hideTooltip, { passive: true });
+
+        [startDays, endDays].forEach(container => {
+            if (container) {
+                container.addEventListener('touchstart', hideTooltip, { passive: true });
+            }
+        });
+
+        const originalRenderAll = renderAll;
+        renderAll = function () {
+            hideTooltip();
+            originalRenderAll();
+        };
+
+        function hideTooltip() {
+            customTooltip.classList.remove('show');
+            tooltipText.style.color = 'var(--text)';
+        }
+
+        function getOrthodoxEasterDate(year) {
+            if (year < 1900 || year > 2099) return null;
+
+            const a = year % 19;
+            const b = year % 4;
+            const c = year % 7;
+            const d = (19 * a + 15) % 30;
+            const e = (2 * b + 4 * c + 6 * d + 6) % 7;
+
+            const julian = d + e;
+
+            let day = 22 + julian;
+            let month = 3;
+
+            if (day > 31) {
+                day -= 31;
+                month = 4;
+            }
+
+            const delta = 13;
+            let gday = day + delta;
+            let gmonth = month;
+
+            if (gmonth === 4 && gday > 30) {
+                gday -= 30;
+                gmonth = 5;
+            } else if (gmonth === 3 && gday > 31) {
+                gday -= 31;
+                gmonth = 4;
+            }
+
+            return `${pad2(gmonth)}-${pad2(gday)}`;
+        }
+
+        function addEasterForYear(year) {
+            Object.keys(HOLIDAYS_RU)
+                .filter(k => HOLIDAYS_RU[k] === 'Пасха')
+                .forEach(k => delete HOLIDAYS_RU[k]);
+
+            const key = getOrthodoxEasterDate(year);
+            if (key) HOLIDAYS_RU[key] = 'Пасха';
+        }
+
+        function setTopView(year, month) {
+            addEasterForYear(year);
+            chipMonth.value = String(month);
+            chipYear.value = String(year);
+            viewStart = new Date(year, month, 1);
+            viewEnd = new Date(year, month, 1);
+            renderAll();
+        }
+
+        chipMonth.addEventListener('change', () => {
+            setTopView(Number(chipYear.value), Number(chipMonth.value));
+        });
+        chipYear.addEventListener('change', () => {
+            setTopView(clampYear(Number(chipYear.value)), Number(chipMonth.value));
+        });
+
+        function renderWeekdays(container) {
+            container.innerHTML = '';
+            WEEKDAYS.forEach(w => {
+                const div = document.createElement('div');
+                div.className = 'weekday';
+                div.textContent = w;
+                container.appendChild(div);
+            });
+        }
+
+        function updateSingleCalendar(date) {
+            if (!date) {
+                singleDateValue.textContent = '—';
+                singleHolidayValue.textContent = '—';
+                singleHolidayValue.classList.remove('rainbow-text', 'type-none');
+                singleDateValue.classList.remove('type-date');
+                singleDayTypeValue.textContent = '—';
+                singleDayTypeValue.classList.remove('type-working', 'type-weekend', 'type-holiday');
+                zodiacText.textContent = '—';
+                zodiacImage.innerHTML = '';
+                singleMoonValue.textContent = '—';
+                singleLegend.textContent = 'Выберите дату в любом календаре, чтобы увидеть подробности.';
+                return;
+            }
+
+            const dateKey = md(date);
+            const year = date.getFullYear();
+            const holiday = HOLIDAYS_RU[dateKey];
+            const memorial = getMemorialDayName(dateKey, year);
+            const eventName = holiday || memorial;
+
+            const full = `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}.${date.getFullYear()}`;
+            const dow = WEEKDAY_FULL[date.getDay()];
+            const weekend = isWeekend(date);
+            const zodiac = getZodiacAnimal(year);
+
+            singleDateValue.textContent = `${full} (${dow})`;
+            singleDateValue.classList.add('type-date');
+
+            singleHolidayValue.classList.remove('rainbow-text', 'type-none', 'type-holiday', 'type-weekend', 'type-working');
+            singleDayTypeValue.classList.remove('type-working', 'type-weekend', 'type-holiday');
+
+            let type = 'Рабочий день';
+            let cls = 'type-working';
+            let legend = 'В этот день нет официального праздника.';
+
+            if (holiday) {
+                singleHolidayValue.textContent = holiday;
+                singleHolidayValue.classList.add('rainbow-text');
+                type = 'Праздник';
+                cls = 'type-holiday';
+                legend = `🎉 Это официальный праздник (нерабочий день): ${holiday}.`;
+            } else if (weekend) {
+                singleHolidayValue.textContent = eventName || 'Нет';
+                singleHolidayValue.classList.add(eventName ? 'rainbow-text' : 'type-none');
+                type = 'Выходной';
+                cls = 'type-weekend';
+                legend = eventName
+                    ? `📜 Это памятная дата (${eventName}). День сам по себе выходной.`
+                    : `Это обычный выходной день (суббота или воскресенье).`;
+            } else if (memorial) {
+                singleHolidayValue.textContent = memorial;
+                singleHolidayValue.classList.add('rainbow-text');
+                type = 'Рабочий день';
+                cls = 'type-working';
+                legend = `📜 Это памятная дата: ${memorial}. День является рабочим.`;
+            } else {
+                singleHolidayValue.textContent = 'Нет';
+                singleHolidayValue.classList.add('type-none');
+                legend = 'В этот день нет официального праздника.';
+            }
+
+            singleLegend.textContent = legend;
+            singleDayTypeValue.textContent = type;
+            singleDayTypeValue.classList.add(cls);
+
+            zodiacText.textContent = `${year} — Год ${zodiac.name}`;
+            zodiacImage.innerHTML = `<span style="font-size:22px;">${zodiac.emoji}</span>`;
+
+            const phase = getMoonPhase(date);
+            const phaseName = getMoonPhaseName(phase);
+            singleMoonValue.textContent = `${getMoonEmoji(phase)} ${phaseName}`;
+        }
+
+        function renderCalendar(viewDate, daysContainer, titleSpan, type) {
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+
+            const first = new Date(year, month, 1);
+            const last = new Date(year, month + 1, 0);
+
+            titleSpan.textContent = monthTitle(viewDate);
+            daysContainer.innerHTML = '';
+
+            const startW = (first.getDay() === 0 ? 7 : first.getDay());
+            const empty = startW - 1;
+
+            for (let i = 0; i < empty; i++) {
+                const div = document.createElement('div');
+                div.className = 'day empty';
+                daysContainer.appendChild(div);
+            }
+
+            for (let d = 1; d <= last.getDate(); d++) {
+                const date = new Date(year, month, d);
+                const el = document.createElement('div');
+
+                el.className = 'day';
+                el.textContent = String(d);
+
+                const key = md(date);
+                const holiday = HOLIDAYS_RU[key];
+                const memorial = getMemorialDayName(key, year);
+                const eventName = holiday || memorial;
+
+                if (isWeekend(date)) el.classList.add('weekend');
+                if (holiday) el.classList.add('holiday');
+
+                el.dataset.tooltip = eventName || '';
+
+                if (isToday(date)) el.classList.add('today');
+
+                const selected =
+                    (type === 'start' && selectedStart && ymd(date) === ymd(selectedStart)) ||
+                    (type === 'end' && selectedEnd && ymd(date) === ymd(selectedEnd));
+
+                if (selected) el.classList.add('selected');
+
+                daysContainer.appendChild(el);
+            }
+        }
+
+        function renderAll() {
+            addEasterForYear(viewStart.getFullYear());
+            addEasterForYear(viewEnd.getFullYear());
+            renderCalendar(viewStart, startDays, startTitle, 'start');
+            renderCalendar(viewEnd, endDays, endTitle, 'end');
+        }
+
+        function shiftMonth(view, delta) {
+            return new Date(view.getFullYear(), view.getMonth() + delta, 1);
+        }
+
+        function attachNav() {
+            document.querySelectorAll('.nav button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    hideTooltip();
+
+                    const cal = btn.dataset.cal;
+                    const act = btn.dataset.act;
+
+                    let year;
+
+                    if (cal === 'start') {
+                        if (act === 'prev') viewStart = shiftMonth(viewStart, -1);
+                        if (act === 'next') viewStart = shiftMonth(viewStart, +1);
+                        if (act === 'today') viewStart = new Date();
+                        year = viewStart.getFullYear();
+                    } else {
+                        if (act === 'prev') viewEnd = shiftMonth(viewEnd, -1);
+                        if (act === 'next') viewEnd = shiftMonth(viewEnd, +1);
+                        if (act === 'today') viewEnd = new Date();
+                        year = viewEnd.getFullYear();
+                    }
+
+                    addEasterForYear(year);
+                    renderAll();
+                });
+            });
+        }
+
+        function handleDayClick(e, type) {
+            const el = e.target.closest('.day');
+            if (!el || el.classList.contains('empty')) return;
+
+            const num = parseInt(el.textContent);
+            if (isNaN(num)) return;
+
+            const view = (type === 'start' ? viewStart : viewEnd);
+            const year = view.getFullYear();
+            const month = view.getMonth();
+
+            const date = new Date(year, month, num);
+
+            let selected;
+
+            if (type === 'start') {
+                selectedStart = date;
+                selected = selectedStart;
+                if (selectedEnd && selectedStart > selectedEnd) selectedEnd = null;
+            } else {
+                selectedEnd = date;
+                selected = selectedEnd;
+            }
+
+            const tip = el.dataset.tooltip;
+
+            if (tip) {
+                if (customTooltip.classList.contains('show') && tooltipText.textContent === tip) {
+                    hideTooltip();
+                } else {
+                    const temp = el.cloneNode(true);
+                    temp.textContent = el.textContent;
+                    temp.classList.remove('rainbow-text', 'type-none');
+                    if (el.classList.contains('holiday')) temp.classList.add('holiday');
+                    hideTooltip();
+                    showTooltip(temp, tip);
+                }
+            } else {
+                hideTooltip();
+            }
+
+            renderAll();
+            updateSummary();
+            updateSingleCalendar(selected);
+        }
+
+        function attachDayClickListeners() {
+            startDays.addEventListener('click', e => handleDayClick(e, 'start'));
+            endDays.addEventListener('click', e => handleDayClick(e, 'end'));
+
+            [startDays, endDays].forEach(cont => {
+                cont.addEventListener('mouseover', e => {
+                    const el = e.target.closest('.day');
+                    if (el && el.dataset.tooltip) showTooltip(el, el.dataset.tooltip);
+                    else hideTooltip();
+                });
+
+                cont.addEventListener('mouseout', hideTooltip);
+
+                cont.addEventListener('touchstart', e => {
+                    const el = e.target.closest('.day');
+                    if (el && el.dataset.tooltip) showTooltip(el, el.dataset.tooltip);
+                    else hideTooltip();
+                });
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hh = pad2(now.getHours());
+            const mm = pad2(now.getMinutes());
+            const ss = pad2(now.getSeconds());
+
+            nowTime.textContent = `${hh}:${mm}:${ss}`;
+            monthWeek.textContent = `${WEEKDAY_FULL[now.getDay()]}, ${MONTHS[now.getMonth()]}`;
+            todayFull.textContent = `${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}.${now.getFullYear()}`;
+        }
+
+        function updateSummary() {
+            if (selectedStart && selectedEnd) {
+                const s = new Date(selectedStart.getFullYear(), selectedStart.getMonth(), selectedStart.getDate());
+                const e = new Date(selectedEnd.getFullYear(), selectedEnd.getMonth(), selectedEnd.getDate());
+                const ms = e - s;
+                const days = Math.round(ms / (1000 * 60 * 60 * 24));
+                daysBetweenEl.textContent = `${days}`;
+            } else {
+                daysBetweenEl.textContent = '—';
+            }
+
+            if (selectedEnd) {
+                const now = new Date();
+                const end = new Date(selectedEnd.getFullYear(), selectedEnd.getMonth(), selectedEnd.getDate(), 23, 59, 59, 999);
+
+                let diff = end - now;
+
+                if (diff <= 0) {
+                    timeLeftEl.textContent = '0д 0ч 0м 0с';
+                    return;
+                }
+
+                const MS_PER_SEC = 1000;
+                const MS_PER_MIN = MS_PER_SEC * 60;
+                const MS_PER_HOUR = MS_PER_MIN * 60;
+                const MS_PER_DAY = MS_PER_HOUR * 24;
+
+                const d = Math.floor(diff / MS_PER_DAY);
+                diff %= MS_PER_DAY;
+
+                const h = Math.floor(diff / MS_PER_HOUR);
+                diff %= MS_PER_HOUR;
+
+                const m = Math.floor(diff / MS_PER_MIN);
+                diff %= MS_PER_MIN;
+
+                const s = Math.floor(diff / MS_PER_SEC);
+
+                timeLeftEl.textContent = `${d}д ${pad2(h)}ч ${pad2(m)}м ${pad2(s)}с`;
+            } else {
+                timeLeftEl.textContent = '—';
+            }
+        }
+
+        renderWeekdays(startWeekdays);
+        renderWeekdays(endWeekdays);
+        attachNav();
+        attachDayClickListeners();
+
+        const t = new Date();
+        selectedStart = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+
+        addEasterForYear(t.getFullYear());
+        setTopView(t.getFullYear(), t.getMonth());
+        updateClock();
+        updateSummary();
+        updateSingleCalendar(selectedStart);
+
+        setInterval(() => {
+            updateClock();
+            updateSummary();
+            if (selectedStart || selectedEnd) {
+                const last = selectedEnd || selectedStart;
+                updateSingleCalendar(last);
+            }
+        }, 1000);
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') {
+                viewStart = shiftMonth(viewStart, -1);
+                viewEnd = shiftMonth(viewEnd, -1);
+                addEasterForYear(viewStart.getFullYear());
+                setTopView(viewStart.getFullYear(), viewStart.getMonth());
+                hideTooltip();
+            } else if (e.key === 'ArrowRight') {
+                viewStart = shiftMonth(viewStart, +1);
+                viewEnd = shiftMonth(viewEnd, +1);
+                addEasterForYear(viewStart.getFullYear());
+                setTopView(viewStart.getFullYear(), viewStart.getMonth());
+                hideTooltip();
+            } else if (e.key.toLowerCase() === 't') {
+                const now = new Date();
+                addEasterForYear(now.getFullYear());
+                setTopView(now.getFullYear(), now.getMonth());
+                hideTooltip();
+            }
+        });
+
+        function addSwipeNavigation(container, type) {
+            let startX = 0;
+            let startY = 0;
+
+            container.addEventListener('touchstart', e => {
+                startX = e.changedTouches[0].clientX;
+                startY = e.changedTouches[0].clientY;
+            }, { passive: true });
+
+            container.addEventListener('touchend', e => {
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+
+                const diffX = startX - endX;
+                const diffY = startY - endY;
+
+                if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+                    if (diffX > 0) {
+                        if (type === 'start') viewStart = shiftMonth(viewStart, +1);
+                        else viewEnd = shiftMonth(viewEnd, +1);
+                    } else {
+                        if (type === 'start') viewStart = shiftMonth(viewStart, -1);
+                        else viewEnd = shiftMonth(viewEnd, -1);
+                    }
+
+                    addEasterForYear(type === 'start' ? viewStart.getFullYear() : viewEnd.getFullYear());
+                    renderAll();
+                }
+            });
+        }
+
+        addSwipeNavigation(startDays, 'start');
+        addSwipeNavigation(endDays, 'end');
+
+        const cityRegistry = {
+            "Куртамыш": { lat: 54.910156, lon: 64.427990 },
+            "Курган": { lat: 55.441004, lon: 65.341118 },
+            "Тюмень": { lat: 57.152985, lon: 65.541227 },
+            "Челябинск": { lat: 55.159902, lon: 61.402554 },
+            "Екатеринбург": { lat: 56.837435, lon: 60.597636 },
+            "Москва": { lat: 55.755864, lon: 37.617698 },
+            "Санкт-Петербург": { lat: 59.938784, lon: 30.314997, },
+            "Новосибирск": { lat: 55.030204, lon: 82.920430, }
+        };
+
+        const weatherCitySelect = document.querySelector("#weatherCitySelect");
+        const weatherCurrentIcon = document.querySelector("#weatherCurrentIcon");
+        const weatherCurrentTemp = document.querySelector("#weatherCurrentTemp");
+        const weatherCurrentDesc = document.querySelector("#weatherCurrentDesc");
+        const weatherCurrentExtra = document.querySelector("#weatherCurrentExtra");
+        const weatherHourlyContainer = document.querySelector("#weatherHourlyContainer");
+
+        if (weatherCitySelect) {
+            Object.keys(cityRegistry).forEach(cityName => {
+                const opt = document.createElement("option");
+                opt.value = cityName;
+                opt.textContent = cityName;
+                weatherCitySelect.appendChild(opt);
+            });
+
+            weatherCitySelect.addEventListener("change", (event) => {
+                initWeather(event.target.value);
+            });
+        }
+
+        function WindDir(deg) {
+            if (deg >= 337.5 || deg < 22.5) return "С";
+            if (deg >= 22.5 && deg < 67.5) return "СВ";
+            if (deg >= 67.5 && deg < 112.5) return "В";
+            if (deg >= 112.5 && deg < 157.5) return "ЮВ";
+            if (deg >= 157.5 && deg < 202.5) return "Ю";
+            if (deg >= 202.5 && deg < 247.5) return "ЮЗ";
+            if (deg >= 247.5 && deg < 292.5) return "З";
+            return "СЗ";
+        }
+
+        function WeatherText(code) {
+            const texts = {
+                0: "Ясно",
+                1: "Преимущественно ясно",
+                2: "Переменная облачность",
+                3: "Пасмурно",
+                45: "Туман", 48: "Густой туман",
+                51: "Слабая морось", 53: "Умеренная морось", 55: "Плотная морось",
+                61: "Небольшой дождь", 63: "Умеренный дождь", 65: "Сильный дождь",
+                71: "Слабый снег", 73: "Снегопад", 75: "Сильный снегопад",
+                77: "Снежная крупа",
+                80: "Слабый ливень", 81: "Ливневый дождь", 82: "Сильный ливень",
+                85: "Слабый ливневый снег", 86: "Сильный ливневый снег",
+                95: "Гроза", 96: "Гроза с градом", 99: "Сильная гроза с градом"
+            };
+            return texts[code] || "Погода";
+        }
+
+        function Icon(code, isDay = 1) {
+            const icons = {
+                0: isDay ? "☀️" : "🌙",
+                1: isDay ? "☀️" : "🌙",
+
+                2: isDay ? "🌤️" : "☁️",
+
+                3: "☁️",
+
+                45: "🌫️", 48: "🌫️",
+                51: "🌧️", 53: "🌧️", 55: "🌧️",
+                61: "🌧️", 63: "🌧️", 65: "🌧️",
+                71: "🌨️", 73: "❄️", 75: "❄️",
+                95: "⛈️"
+            };
+
+            return icons[code] || (isDay ? "☀️" : "🌙");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initWeather();
+            setInterval(initWeather, 900000);
+        });
+
+        async function initWeather(cityName = "Куртамыш") {
+            const cityData = cityRegistry[cityName];
+
+            if (cityData) {
+                await loadWeather(cityData.lat, cityData.lon);
+
+                const cityLabel = document.querySelector('.city-name');
+                if (cityLabel) cityLabel.innerText = cityName;
+            }
+        }
+
+        async function loadWeather(lat, lon) {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,is_day,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code&past_days=1&timezone=auto`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (!data?.current || !data?.hourly) return;
+
+                const cur = data.current;
+                const now = new Date();
+                const hourIdx = now.getHours();
+                const todayIdx = hourIdx + 24;
+
+                const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+                setTxt("weatherCurrentTemp", `${Math.round(cur.temperature_2m)}°`);
+                setTxt("weatherCurrentDesc", WeatherText(cur.weather_code));
+                const iconEl = document.getElementById("weatherCurrentIcon");
+                if (iconEl) iconEl.textContent = Icon(cur.weather_code, cur.is_day);
+
+                setTxt("feelsLikeTemp", Math.round(cur.apparent_temperature));
+
+                const yestApparent = Math.round(data.hourly.apparent_temperature[hourIdx]);
+                const yestEl = document.getElementById("yesterdayFeelsLike");
+                if (yestEl) yestEl.textContent = `Вчера в это время ощущалось: ${yestApparent}°`;
+
+                const diff = Math.round(cur.temperature_2m) - Math.round(data.hourly.temperature_2m[hourIdx]);
+                const compEl = document.getElementById("compareFeelsLike");
+                if (compEl) {
+                    if (diff > 0) {
+                        compEl.textContent = `Сегодня теплее на ${diff}°`;
+                        compEl.style.color = "#FF0000";
+                    } else if (diff < 0) {
+                        compEl.textContent = `Сегодня холоднее на ${Math.abs(diff)}°`;
+                        compEl.style.color = "#007BFF";
+                    } else {
+                        compEl.textContent = "Сегодня так же, как вчера";
+                        compEl.style.color = "#008000";
+                    }
+                    compEl.style.fontWeight = "bold";
+                }
+
+                const wind = Math.round(cur.wind_speed_10m * 0.4 * 10) / 10;
+                const press = Math.round(cur.surface_pressure * 0.750062);
+                const precipitationInfo = getPrecipitationText(data.hourly, todayIdx);
+
+                const extra = document.getElementById("weatherCurrentExtra");
+                if (extra) {
+                    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                    let isWifi = true;
+
+                    if (connection) {
+                        if (connection.type === 'cellular' ||
+                            (connection.effectiveType && (connection.effectiveType.includes('2g') || connection.effectiveType.includes('3g')))) {
+                            isWifi = false;
+                        }
+                    }
+
+                    extra.innerHTML = `
+                Ветер: ${wind} м/с, ${WindDir(cur.wind_direction_10m)}<br>
+                Давление: ${press} мм рт. ст.<br>
+                Влажность: ${cur.relative_humidity_2m}% | Осадки: ${cur.precipitation} мм<br>
+                <b style="color: #007BFF;">${precipitationInfo}</b><br>
+                Макс. сегодня: ${Math.round(data.daily.temperature_2m_max[1])}°
+            `;
+
+                    if (precipitationInfo.includes(":00")) {
+                        const bTag = extra.querySelector('b');
+                        if (bTag) bTag.style.color = "#4B0082";
+                    }
+                }
+
+                if (data.daily?.sunrise?.[1] && data.daily?.sunset?.[1]) {
+                    const sunriseTime = data.daily.sunrise[1].split('T')[1];
+                    const sunsetTime = data.daily.sunset[1].split('T')[1];
+
+                    document.getElementById('sunriseTime').innerText = sunriseTime;
+                    document.getElementById('sunsetTime').innerText = sunsetTime;
+
+                    const currentStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+                    const musicBtn = document.getElementById('musicBtn');
+                    const greetingEl = document.querySelector('.welcome-text');
+
+                    if (currentStr > sunsetTime || currentStr < sunriseTime) {
+                        if (greetingEl) greetingEl.innerText = "Доброй ночи! 🌙";
+                        if (musicBtn) { musicBtn.style.borderColor = "#ff00ff"; musicBtn.style.boxShadow = "0 0 15px #ff00ff"; }
+                    } else {
+                        if (greetingEl) greetingEl.innerText = "Добрый день! ☀️";
+                        if (musicBtn) { musicBtn.style.borderColor = "#adff2f"; musicBtn.style.boxShadow = "0 0 15px #adff2f"; }
+                    }
+                }
+
+                const adviceEl = document.getElementById("weatherAdvice");
+                if (adviceEl) {
+                    const t = Math.round(cur.temperature_2m);
+                    const code = cur.weather_code;
+                    let advice = "";
+
+                    adviceEl.style.fontWeight = "800";
+                    adviceEl.style.fontSize = "1.2rem";
+                    adviceEl.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000";
+
+                    if (code >= 95) {
+                        advice = "⚡ Гроза! Лучше остаться дома.";
+                        adviceEl.style.color = "#ff4d4d";
+                    } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) {
+                        advice = "☔ Идет дождь, возьми зонтик!";
+                        adviceEl.style.color = "#4db8ff";
+                    } else if ([71, 73, 75, 85, 86].includes(code)) {
+                        advice = "🌨️ Снегопад! Одевайся теплее.";
+                        adviceEl.style.color = "#ffffff";
+                    } else {
+                        if (t < -15) {
+                            advice = "❄️ Сильный мороз! Надень теплую куртку и шапку.";
+                            adviceEl.style.color = "#33ccff";
+                        } else if (t < 5) {
+                            advice = "🧥 Холодно, не забудь куртку и шапку.";
+                            adviceEl.style.color = "#00ffff";
+                        } else if (t < 18) {
+                            advice = "🍃 Прохладно, накинь кофту или ветровку.";
+                            adviceEl.style.color = "#ff9933";
+                        } else if (t < 27) {
+                            advice = "👕 Тепло! Идеальная погода для футболки.";
+                            adviceEl.style.color = "#FFFF00";
+                        } else {
+                            advice = "🥵 Жарко! Пей больше воды и будь в тени.";
+                            adviceEl.style.color = "#ff3300";
+                        }
+                    }
+                    adviceEl.textContent = advice;
+                }
+
+                renderHourly(data);
+                renderSevenDays(data);
+            } catch (e) { console.error("Ошибка:", e); }
+        }
+
+        function renderSevenDays(data) {
+            const container = document.getElementById("weatherSevenDaysContainer");
+            if (!container || !data.daily) return;
+            container.innerHTML = "";
+
+            const daily = data.daily;
+            for (let i = 1; i < daily.time.length; i++) {
+                const date = new Date(daily.time[i]);
+                const dayLabel = i === 1 ? "Сегодня" : WEEKDAYS[(date.getDay() === 0 ? 6 : date.getDay() - 1)];
+
+                const card = document.createElement("div");
+                card.className = "weather-hour-card"; // Используем ваш существующий класс для стиля
+                card.innerHTML = `
+            <div class="weather-hour-time">${dayLabel}</div>
+            <div class="weather-hour-icon">${Icon(daily.weather_code[i], 1)}</div>
+            <div class="weather-hour-temp">${Math.round(daily.temperature_2m_max[i])}°</div>
+            <div class="weather-hour-meta" style="color:var(--muted)">${Math.round(daily.temperature_2m_min[i])}°</div>
+        `;
+                container.appendChild(card);
+            }
+        }
+
+        function getPrecipitationText(hourly, startIndex) {
+            let start = -1;
+            let end = -1;
+            let code = 0;
+
+            for (let i = startIndex; i < startIndex + 24; i++) {
+                const prec = hourly.precipitation[i];
+                if (prec > 0) {
+                    if (start === -1) {
+                        start = i;
+                        code = hourly.weather_code[i];
+                    }
+                    end = i + 1;
+                } else if (start !== -1) {
+                    break;
+                }
+            }
+
+            if (start === -1) return "Осадков не ожидается";
+
+            if (code >= 95) {
+                type = "Гроза ⚡";
+            } else if (code >= 80 && code <= 82) {
+                type = "Ливень 🌧️";
+            } else if (code >= 61 && code <= 65) {
+                type = "Дождь 💧";
+            } else if (code >= 51 && code <= 57) {
+                type = "Небольшой дождь 💧";
+            } else if (code >= 71 && code <= 77) {
+                type = "Снегопад ❄️";
+            } else if (code === 66 || code === 67) {
+                type = "Снег с дождём 🌨️";
+            } else {
+                type = "Осадки";
+            }
+
+            const formatTime = (idx) => `${idx % 24}:00`;
+            return `${type} с ${formatTime(start)} до ${formatTime(end)}`;
+        }
+
+        function renderHourly(data) {
+            const container = document.getElementById("weatherHourlyContainer") ||
+                document.getElementById("hourly-forecast") ||
+                document.querySelector(".weather-hourly");
+
+            if (!container) return;
+
+            container.innerHTML = "";
+            const hours = data.hourly.time;
+            const now = new Date();
+
+            const currentHourStr = now.getFullYear() + "-" +
+                String(now.getMonth() + 1).padStart(2, '0') + "-" +
+                String(now.getDate()).padStart(2, '0') + "T" +
+                String(now.getHours()).padStart(2, '0') + ":00";
+
+            let idx = hours.findIndex(t => t.startsWith(currentHourStr));
+            if (idx === -1) idx = 0;
+
+            for (let i = idx; i < idx + 24 && i < hours.length; i++) {
+                const t = new Date(hours[i]);
+                const card = document.createElement("div");
+                card.className = "weather-hour-card";
+                card.innerHTML = `
+            <div class="weather-hour-time">${String(t.getHours()).padStart(2, "0")}:00</div>
+            <div class="weather-hour-icon">${Icon(data.hourly.weather_code[i], data.hourly.is_day[i])}</div>
+            <div class="weather-hour-temp">${Math.round(data.hourly.temperature_2m[i])}°</div>
+            <div class="weather-hour-meta">💧 ${data.hourly.precipitation_probability[i] || 0}%</div>
+            `;
+                container.appendChild(card);
+            }
+
+            if (typeof updateArrows === "function") updateArrows();
+        }
+
+        if (weatherCitySelect) {
+            weatherCitySelect.addEventListener("change", () => {
+                const [lat, lon] = weatherCitySelect.value.split(",");
+                loadWeather(lat, lon);
+            });
+
+            const [lat0, lon0] = weatherCitySelect.value.split(",");
+            loadWeather(lat0, lon0);
+        }
+
+        const hourlyScroll = document.getElementById("weatherHourlyContainer");
+        const btnPrev = document.getElementById("hour-prev");
+        const btnNext = document.getElementById("hour-next");
+
+        btnPrev.addEventListener("click", () => {
+            hourlyScroll.scrollBy({
+                left: -200,
+                behavior: "smooth"
+            });
+        });
+
+        btnNext.addEventListener("click", () => {
+            hourlyScroll.scrollBy({
+                left: 200,
+                behavior: "smooth"
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const bgMusic = document.getElementById('bgMusic');
+            const musicBtn = document.getElementById('musicBtn');
+
+            function toggleMusic() {
+                if (bgMusic.paused) {
+                    bgMusic.play().then(() => {
+                        musicBtn.innerHTML = '🔊';
+                    }).catch(err => console.log("Автоплей заблокирован"));
+                } else {
+                    bgMusic.pause();
+                    musicBtn.innerHTML = '🔇';
+                }
+            }
+
+            musicBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleMusic();
+            });
+        });
+
+        const updateArrows = () => {
+            const s = document.getElementById("weatherHourlyContainer");
+            const p = document.getElementById("hour-prev");
+            const n = document.getElementById("hour-next");
+
+            if (!s || !p || !n) return;
+
+            const { scrollLeft, scrollWidth, clientWidth } = s;
+
+            const isAtStart = scrollLeft <= 2;
+            p.style.opacity = isAtStart ? "0" : "1";
+            p.style.pointerEvents = isAtStart ? "none" : "auto";
+            p.style.visibility = "visible";
+
+            const isAtEnd = scrollLeft + clientWidth >= (scrollWidth - 2);
+            n.style.opacity = isAtEnd ? "0" : "1";
+            n.style.pointerEvents = isAtEnd ? "none" : "auto";
+            n.style.visibility = "visible";
+        };
+
+        document.getElementById("weatherHourlyContainer")?.addEventListener("scroll", updateArrows);
+        updateArrows();
+    </script>
+</body>
+</html>
